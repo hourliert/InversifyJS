@@ -1148,6 +1148,123 @@ describe("InversifyJS", () => {
 
     });
 
+    it("Should be able to inject dependencies into a class that extends another one", () => {
+
+        interface INinja {
+            fight(): string;
+            sneak(): string;
+        }
+
+        interface ICyberNinja extends INinja {
+            hack(): string;
+        }
+
+        interface IDarkCyberNinja extends ICyberNinja {
+            darkHack(): string;
+        }
+
+        interface IKatana {
+            hit(): string;
+        }
+
+        interface IShuriken {
+            throw(): string;
+        }
+
+        interface IComputer {
+            execute(cmd: string): string;
+        }
+
+        @injectable()
+        class Katana implements IKatana {
+            public hit() {
+                return "cut!";
+            }
+        }
+
+        @injectable()
+        class Shuriken implements IShuriken {
+            public throw() {
+                return "hit!";
+            }
+        }
+
+        @injectable()
+        class Computer implements IComputer {
+            public execute(cmd: string) {
+                return `processing ${cmd}!`;
+            }
+        }
+
+        let TYPES = {
+            Computer: Symbol("IComputer"),
+            Katana: Symbol("IKatana"),
+            Ninja: Symbol("INinja"),
+            Shuriken: Symbol("IShuriken")
+        };
+
+
+        class Ninja implements INinja {
+
+            private _katana: Katana;
+            private _shuriken: Shuriken;
+
+            public constructor(
+                katana: Katana,
+                shuriken: Shuriken
+            ) {
+                this._katana = katana;
+                this._shuriken = shuriken;
+            }
+
+            public fight() { return this._katana.hit(); };
+            public sneak() { return this._shuriken.throw(); };
+
+        }
+
+        class CyberNinja extends Ninja implements ICyberNinja {
+            protected _computer: Computer;
+
+            public constructor(
+                katana: Katana,
+                shuriken: Shuriken,
+                computer: Computer
+            ) {
+                super(katana, shuriken);
+                this._computer = computer;
+            }
+
+            public hack() { return this._computer.execute("hack"); }
+        }
+
+        @injectable()
+        class DarkCyberNinja extends CyberNinja implements IDarkCyberNinja {
+            public constructor(
+                @inject(TYPES.Katana) katana: Katana,
+                @inject(TYPES.Shuriken) shuriken: Shuriken,
+                @inject(TYPES.Computer) computer: Computer
+            ) {
+                super(katana, shuriken, computer);
+            }
+
+            public darkHack() { return this._computer.execute("mega hack"); }
+        }
+
+        let kernel = new Kernel();
+        kernel.bind<IDarkCyberNinja>(TYPES.Ninja).to(DarkCyberNinja);
+        kernel.bind<IKatana>(TYPES.Katana).to(Katana);
+        kernel.bind<IShuriken>(TYPES.Shuriken).to(Shuriken);
+        kernel.bind<IComputer>(TYPES.Computer).to(Computer);
+
+        let ninja = kernel.get<IDarkCyberNinja>(TYPES.Ninja);
+
+        expect(ninja.fight()).eql("cut!");
+        expect(ninja.sneak()).eql("hit!");
+        expect(ninja.hack()).eql("processing hack!");
+        expect(ninja.darkHack()).eql("processing mega hack!");
+
+    });
+
     describe("Contextual bindings contraints", () => {
 
         interface IWeapon {}
